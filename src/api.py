@@ -1,53 +1,34 @@
-import json
 from flask import Flask, request, jsonify
-from stock_fetcher import YahooFinanceFetcher, WebScraperFetcher
-from price_analyzer import OpenAIAnalyzer, LangChainAnalyzer
-# from new import WebScraperFetcher, StockAnalyzer
+import requests
+
+from src.agent import StockRecommendationAgent
+from src.utils.logger import setup_logger
 
 
 app = Flask(__name__)
+agent = StockRecommendationAgent()
+logger = setup_logger()
 
-# Initialize fetchers and analyzers
-yahoo_fetcher = YahooFinanceFetcher()
-scraper_fetcher = WebScraperFetcher()
-openai_analyzer = OpenAIAnalyzer()
-langchain_analyzer = LangChainAnalyzer()
 
-@app.route("/stock", methods=["GET"])
+@app.route('/stock', methods=['GET'])
 def get_stock_recommendation():
-    ticker = request.args.get("ticker", "").upper()
-
-    if not ticker:
-        return jsonify({"error": "No ticker provided."}), 400
-
-
-    stock_data = yahoo_fetcher.fetch_stock_data(ticker)
-    if "error" in stock_data:
-        return jsonify(stock_data), 400
-        
-    # print("YahooFinance data:", stock_data)
-
-    recommendation_data, summary = openai_analyzer.get_stock_insight(stock_data)
-    if "error" in recommendation_data:
-        return jsonify(recommendation_data), 500
+    ticker = request.args.get('ticker', '').upper()
     
-    openai_response = {
-        "ticker": recommendation_data["ticker"],
-        "analysis_summary": recommendation_data["analysis_summary"],
-        "recommendation": recommendation_data["recommendation"],
-        "reasoning": recommendation_data["reasoning"],
-        "risk_assessment": recommendation_data["risk_assessment"],
-        "confidence_score": recommendation_data["confidence_score"],
-        "raw_summary": summary  # Optional raw summary for debugging
-    }
+    stock = request.args.get('stock', '')
     
-    recommendation_data, summary = langchain_analyzer.get_stock_insight(stock_data)
+    if not ticker and not stock:
+        logger.error("No ticker or stock name provided")
+        return jsonify({"error": "Please provide either a ticker or stock name"}), 400
+
+    try:
+        recommendation = agent.generate_comprehensive_recommendation(ticker, stock)
+        return jsonify(recommendation)
+    except ValueError as e:
+        logger.error(f"ValueError processing recommendation for {ticker}: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error processing recommendation for {ticker}: {str(e)}", exc_info=True)
+        return jsonify({"error": "An unexpected error occurred"}), 500
 
 
-    return jsonify({
-        "openai": openai_response,
-        "langchain": recommendation_data
-    })
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
