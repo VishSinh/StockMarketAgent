@@ -23,7 +23,7 @@ curl --location 'http://127.0.0.1:5000/stock?ticker=AAPL'
 ```sh
 curl --location 'http://127.0.0.1:5000/stock?stock=Apple'
 ```
-
+---
 ### Deployment Test Link
 ```sh
 curl --location 'https://stockmarketagent.onrender.com/stock?stock=Apple'
